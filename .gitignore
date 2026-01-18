@@ -1,0 +1,25 @@
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Kubernetes
+kubeconfig
+*.kubeconfig
+
+# Helm
+helm-charts/**/charts/
+*.tgz
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/
