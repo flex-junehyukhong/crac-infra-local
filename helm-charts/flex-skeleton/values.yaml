@@ -4,8 +4,9 @@
 replicaCount: 1
 
 image:
+  # localhost:5001은 Kind 노드의 containerd 설정으로 kind-registry:5000으로 리다이렉트됨
   repository: localhost:5001/application
-  tag: local
+  tag: a88bcf3
   pullPolicy: Always
 
 service:
