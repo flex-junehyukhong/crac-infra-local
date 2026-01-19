@@ -98,3 +98,34 @@ kubectl logs -n argocd deployment/argocd-server
 1. `helm-charts/<app-name>/`에 Helm 차트 생성
 2. `argocd/applications/<app-name>.yaml`에 ArgoCD Application 생성 (차트 경로 지정)
 3. Git에 Push - ArgoCD가 자동으로 동기화
+
+## 주요 설정 파일 설명
+
+### CI/CD
+
+| 파일 | 설명 |
+|------|------|
+| `.github/workflows/ci.yaml` | GitHub Actions CI 파이프라인. Helm lint, Kind 설정 검증, 매니페스트 렌더링 테스트 수행 |
+
+### Kind 클러스터
+
+| 파일 | 설명 |
+|------|------|
+| `kind/kind-config.yaml` | Kind 클러스터 구성 정의. control-plane 1개 + worker 2개 노드 구성, NodePort 포트 매핑 (30080, 30000) |
+
+### ArgoCD
+
+| 파일 | 설명 |
+|------|------|
+| `argocd/namespace.yaml` | `argocd`, `sample` 네임스페이스 정의. ArgoCD 컴포넌트와 애플리케이션 격리 |
+| `argocd/applications/sample-app.yaml` | ArgoCD Application 리소스. Git 저장소 감시, auto-sync/prune/selfHeal 활성화로 GitOps 자동화 |
+
+### Helm Chart
+
+| 파일 | 설명 |
+|------|------|
+| `helm-charts/sample-app/Chart.yaml` | 차트 메타데이터. 차트 버전(0.1.0)과 앱 버전(1.0.0) 관리 |
+| `helm-charts/sample-app/values.yaml` | 기본 설정값. 레플리카 수, 이미지(nginx:alpine), 리소스 제한, NodePort 설정 |
+| `templates/deployment.yaml` | Deployment 템플릿. Pod 복제본 관리, Liveness/Readiness Probe 설정 |
+| `templates/service.yaml` | Service 템플릿. NodePort 타입으로 외부 트래픽을 Pod로 라우팅 |
+| `templates/_helpers.tpl` | 템플릿 헬퍼 함수. 이름, 레이블 생성 로직 정의 |
