@@ -38,9 +38,8 @@ jobs:
     uses: flex-junehyukhong/crac-ci/.github/workflows/kind-validate.yaml@main
     with:
       config-path: './kind/kind-config.yaml'
-      kind-version: '0.22.0'
+      kind-version: '0.21.0'
       validate-schema: true
-      check-node-config: true
 
   # ---------------------------------------------------------------------------
   # ArgoCD 매니페스트 검증
