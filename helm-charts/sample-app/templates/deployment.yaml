@@ -11,10 +11,10 @@
 #   - 자가 치유: 장애 Pod 자동 재시작
 #
 # Helm 템플릿 문법:
-#   {{ .Values.xxx }}: values.yaml의 값 참조
-#   {{ include "name" . }}: _helpers.tpl의 템플릿 함수 호출
-#   {{- ... }}: 앞쪽 공백 제거
-#   | nindent N: 결과를 N칸 들여쓰기
+#   .Values.xxx - values.yaml의 값 참조
+#   include "name" . - _helpers.tpl의 템플릿 함수 호출
+#   대시(-) 접두사 - 앞쪽 공백 제거
+#   | nindent N - 결과를 N칸 들여쓰기
 # =============================================================================
 
 # Kubernetes API 버전 (apps/v1은 Deployment의 안정 버전)
