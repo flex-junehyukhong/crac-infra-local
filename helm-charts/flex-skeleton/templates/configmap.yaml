@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "flex-skeleton.fullname" . }}-config
+  labels:
+    {{- include "flex-skeleton.labels" . | nindent 4 }}
+data:
+  # Spring 설정
+  SPRING_PROFILES_ACTIVE: {{ .Values.spring.profiles.active | quote }}
+  SERVER_PORT: "8080"
+
+  # 데이터베이스 설정
+  DB_HOST: {{ .Values.database.host | quote }}
+  DB_PORT: {{ .Values.database.port | quote }}
+  DB_NAME: {{ .Values.database.name | quote }}
+  DB_USERNAME: {{ .Values.database.username | quote }}
+  DB_POOL_MAX: {{ .Values.database.poolMax | quote }}
+  DB_POOL_MIN: {{ .Values.database.poolMin | quote }}
+
+  # flex 설정
+  FLEX_APP_NAME: {{ .Values.flex.appName | quote }}
+  FLEX_ENV: {{ .Values.flex.env | quote }}
+
+  # hashids 설정
+  HASHIDS_SEPS: {{ .Values.hashids.seps | quote }}
+  HASHIDS_MIN_LENGTH: {{ .Values.hashids.minLength | quote }}
+  HASHIDS_ALPHABET: {{ .Values.hashids.alphabet | quote }}
+
+  # KMS 설정
+  KMS_REGION: {{ .Values.kms.region | quote }}
+  KMS_ENCRYPTED: {{ .Values.kms.encrypted | quote }}
+
+  # 로깅 설정
+  LOG_LEVEL_ROOT: {{ .Values.logging.levelRoot | quote }}
+  LOG_LEVEL_FLEX: {{ .Values.logging.levelFlex | quote }}
+
+  # JPA 설정
+  JPA_DDL_AUTO: {{ .Values.jpa.ddlAuto | quote }}

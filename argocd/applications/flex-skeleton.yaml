@@ -1,0 +1,34 @@
+# =============================================================================
+# ArgoCD Application - flex-skeleton
+# =============================================================================
+# flex-skeleton Spring Boot 애플리케이션을 배포합니다.
+# Jib으로 빌드된 이미지(localhost:5001/application:local)를 사용합니다.
+# helm-charts/flex-skeleton 경로의 Helm 차트를 flex-skeleton 네임스페이스에 배포합니다.
+# =============================================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: flex-skeleton
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/flex-junehyukhong/crac-infra-local.git
+    targetRevision: HEAD
+    path: helm-charts/flex-skeleton
+    helm:
+      valueFiles:
+        - values.yaml
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: flex-skeleton
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

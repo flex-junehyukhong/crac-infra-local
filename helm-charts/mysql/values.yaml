@@ -1,0 +1,27 @@
+# MySQL Helm Chart Values
+
+image:
+  repository: mysql
+  tag: "8.0"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 3306
+
+database:
+  name: crac_demo
+  user: crac_user
+  password: crac_password
+  rootPassword: root
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+persistence:
+  enabled: false  # 로컬 개발용이므로 PV 사용 안 함

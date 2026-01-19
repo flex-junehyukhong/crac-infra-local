@@ -1,0 +1,6 @@
+apiVersion: v2
+name: mysql
+description: A simple MySQL Helm chart for local development
+type: application
+version: 0.1.0
+appVersion: "8.0"

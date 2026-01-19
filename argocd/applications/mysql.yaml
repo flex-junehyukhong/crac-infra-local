@@ -1,0 +1,33 @@
+# =============================================================================
+# ArgoCD Application - MySQL
+# =============================================================================
+# flex-skeleton 애플리케이션의 데이터베이스로 사용되는 MySQL을 배포합니다.
+# helm-charts/mysql 경로의 Helm 차트를 flex-skeleton 네임스페이스에 배포합니다.
+# =============================================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mysql
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/flex-junehyukhong/crac-infra-local.git
+    targetRevision: HEAD
+    path: helm-charts/mysql
+    helm:
+      valueFiles:
+        - values.yaml
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: flex-skeleton
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

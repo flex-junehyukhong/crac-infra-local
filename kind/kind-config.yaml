@@ -65,6 +65,12 @@ nodes:
         hostPort: 30000
         protocol: TCP
 
+      # flex-skeleton 접근용 포트
+      # http://localhost:30001 → flex-skeleton API (NodePort 30001)
+      - containerPort: 30001
+        hostPort: 30001
+        protocol: TCP
+
   # ---------------------------------------------------------------------------
   # Worker 노드 1
   # ---------------------------------------------------------------------------
