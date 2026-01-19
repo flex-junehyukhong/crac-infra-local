@@ -1,20 +1,16 @@
 # =============================================================================
-# GitHub Actions CI 파이프라인
+# Infrastructure CI Pipeline
 # =============================================================================
-# 이 워크플로우는 코드 변경 시 자동으로 실행되어 Helm 차트와 Kind 설정을 검증합니다.
-# 주요 검증 항목:
-#   1. Helm 차트 문법 검사 (lint)
-#   2. Kind 클러스터 설정 유효성 검사
-#   3. Kubernetes 매니페스트 렌더링 테스트
+# crac-ci 중앙 저장소의 Reusable Workflows를 사용하여 검증합니다.
+#
+# 검증 항목:
+#   1. Helm 차트 lint 및 템플릿 렌더링
+#   2. Kind 클러스터 설정 유효성
+#   3. ArgoCD 매니페스트 검증
 # =============================================================================
 
-name: CI
+name: Infrastructure CI
 
-# -----------------------------------------------------------------------------
-# 트리거 조건 설정
-# -----------------------------------------------------------------------------
-# push: main 또는 master 브랜치에 직접 푸시될 때 실행
-# pull_request: main 또는 master 브랜치로의 PR이 생성/업데이트될 때 실행
 on:
   push:
     branches: [main, master]
@@ -22,62 +18,130 @@ on:
     branches: [main, master]
 
 jobs:
-  validate:
-    # -------------------------------------------------------------------------
-    # 실행 환경: Ubuntu 최신 버전의 GitHub 호스팅 러너 사용
-    # -------------------------------------------------------------------------
-    runs-on: ubuntu-latest
+  # ---------------------------------------------------------------------------
+  # Helm 차트 검증
+  # ---------------------------------------------------------------------------
+  helm-validate:
+    name: Validate Helm Charts
+    uses: flex-junehyukhong/crac-ci/.github/workflows/helm-validate.yaml@main
+    with:
+      chart-path: './helm-charts/sample-app'
+      kube-version: '1.29.0'
+      strict: false
+      upload-manifests: true
 
+  # ---------------------------------------------------------------------------
+  # Kind 클러스터 설정 검증
+  # ---------------------------------------------------------------------------
+  kind-validate:
+    name: Validate Kind Config
+    uses: flex-junehyukhong/crac-ci/.github/workflows/kind-validate.yaml@main
+    with:
+      config-path: './kind/kind-config.yaml'
+      kind-version: '0.22.0'
+      validate-schema: true
+      check-node-config: true
+
+  # ---------------------------------------------------------------------------
+  # ArgoCD 매니페스트 검증
+  # ---------------------------------------------------------------------------
+  argocd-validate:
+    name: Validate ArgoCD Manifests
+    runs-on: ubuntu-latest
     steps:
-      # -----------------------------------------------------------------------
-      # Step 1: 소스 코드 체크아웃
-      # -----------------------------------------------------------------------
-      # actions/checkout@v4: 저장소의 코드를 러너에 복제
-      # 이후 단계에서 코드에 접근할 수 있도록 함
       - name: Checkout
         uses: actions/checkout@v4
 
-      # -----------------------------------------------------------------------
-      # Step 2: Helm CLI 설치
-      # -----------------------------------------------------------------------
-      # azure/setup-helm@v3: Helm CLI를 설치하는 공식 액션
-      # version: 'latest'로 설정하여 항상 최신 버전 사용
-      - name: Setup Helm
-        uses: azure/setup-helm@v3
-        with:
-          version: 'latest'
-
-      # -----------------------------------------------------------------------
-      # Step 3: Helm 차트 문법 검사
-      # -----------------------------------------------------------------------
-      # helm lint: 차트의 문법 오류, 필수 파일 누락, 베스트 프랙티스 위반 검사
-      # 오류 발생 시 워크플로우가 실패하여 잘못된 차트 배포 방지
-      - name: Lint Helm Chart
-        run: helm lint helm-charts/sample-app
-
-      # -----------------------------------------------------------------------
-      # Step 4: Kind 클러스터 설정 검증
-      # -----------------------------------------------------------------------
-      # Kind가 설치되어 있지 않으면 다운로드하여 설치
-      # kind-config.yaml로 테스트 클러스터 생성 시도 후 즉시 삭제
-      # 설정 파일의 문법 오류나 잘못된 옵션을 검출
-      - name: Validate Kind Config
+      - name: Install yq
         run: |
-          if ! command -v kind &> /dev/null; then
-            curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
-            chmod +x ./kind
-            sudo mv ./kind /usr/local/bin/kind
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Validate YAML Syntax
+        run: |
+          echo "Validating ArgoCD manifests..."
+          ERROR_COUNT=0
+
+          for file in argocd/*.yaml argocd/**/*.yaml; do
+            if [[ -f "$file" ]]; then
+              echo "Checking: $file"
+              if ! yq eval '.' "$file" > /dev/null 2>&1; then
+                echo "::error::Invalid YAML: $file"
+                ((ERROR_COUNT++))
+              fi
+            fi
+          done
+
+          if [[ $ERROR_COUNT -gt 0 ]]; then
+            echo "::error::Found $ERROR_COUNT invalid YAML files"
+            exit 1
           fi
-          kind create cluster --config kind/kind-config.yaml --name ci-test || true
-          kind delete cluster --name ci-test
+          echo "All ArgoCD manifests are valid YAML"
 
-      # -----------------------------------------------------------------------
-      # Step 5: Kubernetes 매니페스트 렌더링 검증
-      # -----------------------------------------------------------------------
-      # helm template: values.yaml을 적용하여 최종 K8s 매니페스트 생성
-      # 템플릿 문법 오류, 잘못된 변수 참조 등을 검출
-      # 실제 클러스터 없이도 매니페스트 유효성 확인 가능
-      - name: Validate Kubernetes Manifests
+      - name: Validate ArgoCD Application Structure
         run: |
-          helm template sample-app helm-charts/sample-app > /tmp/rendered.yaml
-          echo "Helm template rendered successfully"
+          echo "Checking ArgoCD Application resources..."
+
+          for file in argocd/applications/*.yaml; do
+            if [[ -f "$file" ]]; then
+              echo "Validating: $file"
+
+              KIND=$(yq eval '.kind' "$file")
+              API_VERSION=$(yq eval '.apiVersion' "$file")
+
+              if [[ "$KIND" != "Application" && "$KIND" != "AppProject" ]]; then
+                echo "::warning::$file has kind '$KIND', expected 'Application' or 'AppProject'"
+              fi
+
+              if [[ ! "$API_VERSION" =~ ^argoproj.io/ ]]; then
+                echo "::warning::$file has unexpected apiVersion: $API_VERSION"
+              fi
+
+              # Check required fields for Application
+              if [[ "$KIND" == "Application" ]]; then
+                DEST_SERVER=$(yq eval '.spec.destination.server // ""' "$file")
+                SOURCE_REPO=$(yq eval '.spec.source.repoURL // ""' "$file")
+
+                if [[ -z "$DEST_SERVER" ]]; then
+                  echo "::error::$file missing spec.destination.server"
+                fi
+                if [[ -z "$SOURCE_REPO" ]]; then
+                  echo "::error::$file missing spec.source.repoURL"
+                fi
+              fi
+            fi
+          done
+
+      - name: Summary
+        run: |
+          echo "## ArgoCD Validation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All ArgoCD manifests validated successfully." >> $GITHUB_STEP_SUMMARY
+
+  # ---------------------------------------------------------------------------
+  # 전체 검증 완료 확인
+  # ---------------------------------------------------------------------------
+  validation-complete:
+    name: All Validations Passed
+    needs: [helm-validate, kind-validate, argocd-validate]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check Results
+        run: |
+          if [[ "${{ needs.helm-validate.result }}" != "success" ]] || \
+             [[ "${{ needs.kind-validate.result }}" != "success" ]] || \
+             [[ "${{ needs.argocd-validate.result }}" != "success" ]]; then
+            echo "::error::One or more validations failed"
+            exit 1
+          fi
+
+      - name: Summary
+        run: |
+          echo "## Infrastructure Validation Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Helm Charts | ${{ needs.helm-validate.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Kind Config | ${{ needs.kind-validate.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| ArgoCD Manifests | ${{ needs.argocd-validate.result }} |" >> $GITHUB_STEP_SUMMARY
